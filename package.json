@@ -1,0 +1,39 @@
+{
+  "name": "coachos",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed": "npx tsx scripts/seed.ts"
+  },
+  "dependencies": {
+    "next": "^14",
+    "react": "^18",
+    "react-dom": "^18",
+    "@supabase/supabase-js": "^2",
+    "@supabase/ssr": "^0",
+    "ai": "^3",
+    "@ai-sdk/anthropic": "^0",
+    "@ai-sdk/openai": "^0",
+    "zod": "^3",
+    "date-fns": "^3",
+    "class-variance-authority": "^0.7",
+    "clsx": "^2",
+    "tailwind-merge": "^2",
+    "lucide-react": "^0.300"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "tailwindcss": "^3",
+    "@types/react": "^18",
+    "@types/node": "^20",
+    "autoprefixer": "^10",
+    "postcss": "^8",
+    "eslint": "^8",
+    "eslint-config-next": "^14",
+    "tsx": "^4"
+  }
+}
