@@ -5,7 +5,8 @@
  */
 import { createAnthropic } from '@ai-sdk/anthropic'
 
-const gatewayBaseUrl = 'https://ai-gateway.vercel.sh'
+// Gateway exposes Anthropic at POST /v1/messages; SDK appends /messages to baseURL.
+const gatewayBaseUrl = 'https://ai-gateway.vercel.sh/v1'
 const defaultModelId = 'claude-sonnet-4-20250514'
 
 function getModelId(): string {
