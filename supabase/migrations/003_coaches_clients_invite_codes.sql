@@ -52,6 +52,9 @@ CREATE POLICY "Coaches insert own row" ON coaches FOR INSERT WITH CHECK (auth.ui
 CREATE POLICY "Coaches update own row" ON coaches FOR UPDATE USING (auth.uid() = id);
 
 -- 8. RLS for clients
+-- Note: Client signup is done server-side via POST /api/auth/signup-client using the
+-- Supabase service role key, which bypasses RLS. So the server can INSERT into clients
+-- before the user has a session. These policies apply to anon/authenticated requests.
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Clients see own row" ON clients FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Clients insert own row" ON clients FOR INSERT WITH CHECK (auth.uid() = id);
