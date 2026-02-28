@@ -8,6 +8,8 @@ import {
 } from '@/lib/signals'
 import { timingSafeEqual } from 'crypto'
 
+export const dynamic = 'force-dynamic'
+
 function safeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) return false
   return timingSafeEqual(Buffer.from(a), Buffer.from(b))

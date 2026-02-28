@@ -16,8 +16,6 @@
     "@supabase/supabase-js": "^2",
     "@supabase/ssr": "^0",
     "ai": "^3",
-    "@ai-sdk/anthropic": "^0",
-    "@ai-sdk/openai": "^0",
     "zod": "^3",
     "date-fns": "^3",
     "class-variance-authority": "^0.7",
