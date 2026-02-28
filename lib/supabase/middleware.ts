@@ -64,6 +64,11 @@ export async function updateSession(request: NextRequest) {
 
   const role = profile?.role
 
+  // No valid role (missing profile or role) → send to login to avoid redirect loop
+  if (role !== 'coach' && role !== 'client') {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
   // Client routes
   const clientRoutes = ['/today', '/brain-dump', '/check-in']
   if (clientRoutes.some((route) => pathname.startsWith(route))) {
