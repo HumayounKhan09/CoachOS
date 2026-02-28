@@ -47,6 +47,9 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient()
 
+    const appOrigin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
+    const redirectTo = `${appOrigin}/auth/callback?next=/accept-invite`
+
     // Check if user already exists
     const { data: existingUsers } = await admin
       .from('profiles')
@@ -57,12 +60,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 })
     }
 
-    // Invite the user
+    // Invite the user (Supabase sends email with link to set password)
     const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: {
         full_name,
         role: 'client',
       },
+      redirectTo,
     })
 
     if (inviteError) {

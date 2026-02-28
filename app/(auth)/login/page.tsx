@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/browser'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
@@ -11,7 +11,15 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  useEffect(() => {
+    const err = searchParams.get('error')
+    if (err === 'auth_callback_failed') {
+      setError('Invalid or expired link. Please try again or request a new link.')
+    }
+  }, [searchParams])
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -72,6 +80,15 @@ export default function LoginPage() {
           </div>
 
           {error && <p className="text-danger text-sm">{error}</p>}
+
+          <div className="flex justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-muted hover:text-accent transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
           <button
             type="submit"

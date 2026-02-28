@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Public routes
-  const publicRoutes = ['/login', '/signup', '/accept-invite']
+  const publicRoutes = ['/login', '/signup', '/accept-invite', '/forgot-password', '/reset-password', '/auth/callback']
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     if (user) {
       // Already authenticated - redirect to appropriate home

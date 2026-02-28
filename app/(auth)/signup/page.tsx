@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [requireEmailConfirm, setRequireEmailConfirm] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -19,7 +20,9 @@ export default function SignupPage() {
     setError('')
     setLoading(true)
 
-    const { error } = await supabase.auth.signUp({
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback?next=/dashboard` : undefined
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -27,12 +30,25 @@ export default function SignupPage() {
           full_name: fullName,
           role: 'coach',
         },
+        emailRedirectTo: redirectTo,
       },
     })
 
     if (error) {
       setError(error.message)
       setLoading(false)
+      return
+    }
+
+    // If email confirmation is required, user will need to click the link in their email
+    if (data?.user && !data?.session) {
+      setError('')
+      setLoading(false)
+      setEmail('')
+      setPassword('')
+      setFullName('')
+      // Show success state: check your email (handled in UI below via a state)
+      setRequireEmailConfirm(true)
       return
     }
 
@@ -46,6 +62,26 @@ export default function SignupPage() {
         <h1 className="text-2xl font-bold text-foreground mb-1">CoachOS</h1>
         <p className="text-muted text-sm mb-8">Create your coaching account</p>
 
+        {requireEmailConfirm ? (
+          <div className="space-y-4">
+            <p className="text-foreground text-sm">
+              Check your email to confirm your account. Click the link we sent you, then you can sign in.
+            </p>
+            <button
+              type="button"
+              onClick={() => setRequireEmailConfirm(false)}
+              className="text-sm text-accent hover:underline"
+            >
+              Use a different email
+            </button>
+            <p className="mt-6 text-center text-sm text-muted">
+              Already have an account?{' '}
+              <Link href="/login" className="text-accent hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        ) : (
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
             <label className="block text-sm text-muted mb-1">Full Name</label>
@@ -96,6 +132,7 @@ export default function SignupPage() {
             Sign in
           </Link>
         </p>
+        )}
       </div>
     </div>
   )
