@@ -1,6 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { runEscalator } from '@/lib/ai/escalator'
+import { z } from 'zod'
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const taskPatchSchema = z.object({
+  status: z.enum(['pending', 'active', 'done', 'stuck', 'dropped']),
+  priority_bucket: z.enum(['now', 'next', 'later']).optional(),
+})
 
 export async function PATCH(
   request: NextRequest,
@@ -15,14 +23,47 @@ export async function PATCH(
     }
 
     const taskId = params.id
-    const body = await request.json()
-    const { status, priority_bucket } = body
 
-    if (!status) {
-      return NextResponse.json({ error: 'status is required' }, { status: 400 })
+    // Validate UUID format
+    if (!UUID_REGEX.test(taskId)) {
+      return NextResponse.json({ error: 'Invalid task ID format' }, { status: 400 })
     }
 
-    // Load the task (RLS ensures access)
+    // Validate request body with Zod
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    const parseResult = taskPatchSchema.safeParse(body)
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { status, priority_bucket } = parseResult.data
+
+    // Verify user role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 403 })
+    }
+
+    // Clients can only mark tasks as done or stuck
+    if (profile.role === 'client' && !['done', 'stuck'].includes(status)) {
+      return NextResponse.json({ error: 'Clients can only mark tasks as done or stuck' }, { status: 403 })
+    }
+
+    // Load the task (RLS ensures access via case ownership)
     const { data: task, error: taskError } = await supabase
       .from('tasks')
       .select('*')
@@ -74,7 +115,7 @@ export async function PATCH(
       .single()
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to update task' }, { status: 500 })
     }
 
     // Check if escalation should be created

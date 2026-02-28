@@ -1,5 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const escalationPatchSchema = z.object({
+  coach_action: z.enum(['approved', 'overridden', 'resolved']),
+  coach_notes: z.string().max(5000, 'Coach notes too long').nullable().optional(),
+})
 
 export async function GET(
   request: NextRequest,
@@ -25,6 +33,11 @@ export async function GET(
     }
 
     const escalationId = params.id
+
+    // Validate UUID format
+    if (!UUID_REGEX.test(escalationId)) {
+      return NextResponse.json({ error: 'Invalid escalation ID format' }, { status: 400 })
+    }
 
     // Load the escalation
     const { data: escalation, error: escalationError } = await supabase
@@ -99,14 +112,29 @@ export async function PATCH(
     }
 
     const escalationId = params.id
-    const { coach_action, coach_notes } = await request.json()
 
-    if (!coach_action || !['approved', 'overridden', 'resolved'].includes(coach_action)) {
+    // Validate UUID format
+    if (!UUID_REGEX.test(escalationId)) {
+      return NextResponse.json({ error: 'Invalid escalation ID format' }, { status: 400 })
+    }
+
+    // Validate request body with Zod
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    const parseResult = escalationPatchSchema.safeParse(body)
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'coach_action must be one of: approved, overridden, resolved' },
+        { error: 'Invalid input', details: parseResult.error.flatten().fieldErrors },
         { status: 400 }
       )
     }
+
+    const { coach_action, coach_notes } = parseResult.data
 
     // Load the escalation to verify it exists and get case_id
     const { data: escalation, error: escalationError } = await supabase
@@ -117,6 +145,11 @@ export async function PATCH(
 
     if (escalationError || !escalation) {
       return NextResponse.json({ error: 'Escalation not found' }, { status: 404 })
+    }
+
+    // Prevent resolving an already-resolved escalation
+    if (escalation.coach_action !== null) {
+      return NextResponse.json({ error: 'Escalation has already been resolved' }, { status: 409 })
     }
 
     // Verify coach owns the case
@@ -144,7 +177,7 @@ export async function PATCH(
       .single()
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to update escalation' }, { status: 500 })
     }
 
     return NextResponse.json({

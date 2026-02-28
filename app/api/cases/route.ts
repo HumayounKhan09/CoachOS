@@ -23,8 +23,14 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const sort = searchParams.get('sort') || 'drift'
-    const filter = searchParams.get('filter') || 'all'
+    const VALID_SORTS = ['drift', 'adherence', 'last_check_in', 'name'] as const
+    const VALID_FILTERS = ['all', 'needs_review', 'drifting', 'on_track', 'inactive'] as const
+
+    const rawSort = searchParams.get('sort') || 'drift'
+    const rawFilter = searchParams.get('filter') || 'all'
+
+    const sort = (VALID_SORTS as readonly string[]).includes(rawSort) ? rawSort : 'drift'
+    const filter = (VALID_FILTERS as readonly string[]).includes(rawFilter) ? rawFilter : 'all'
 
     // Load all cases where coach_id = auth.uid()
     const { data: cases, error: casesError } = await supabase

@@ -8,6 +8,13 @@ import {
   computeDriftScore,
   computeCheckInInterval,
 } from '@/lib/signals'
+import { z } from 'zod'
+
+const checkInSchema = z.object({
+  completed_top_action: z.boolean(),
+  blocker: z.string().max(500, 'Blocker text too long').nullable().optional(),
+  free_text: z.string().max(5000, 'Free text too long').nullable().optional(),
+})
 
 export async function GET() {
   try {
@@ -124,11 +131,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only clients can submit check-ins' }, { status: 403 })
     }
 
-    const { completed_top_action, blocker, free_text } = await request.json()
-
-    if (typeof completed_top_action !== 'boolean') {
-      return NextResponse.json({ error: 'completed_top_action (boolean) is required' }, { status: 400 })
+    // Validate request body with Zod
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
+
+    const parseResult = checkInSchema.safeParse(body)
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { completed_top_action, blocker, free_text } = parseResult.data
 
     // Step 1: Load case + active plan + tasks
     const { data: caseData, error: caseError } = await supabase
@@ -140,6 +159,11 @@ export async function POST(request: NextRequest) {
 
     if (caseError || !caseData) {
       return NextResponse.json({ error: 'No active case found' }, { status: 404 })
+    }
+
+    // Prevent double check-in submission
+    if (!caseData.awaiting_check_in) {
+      return NextResponse.json({ error: 'No check-in is currently pending' }, { status: 409 })
     }
 
     const policies = caseData.policies as {
@@ -303,7 +327,6 @@ export async function POST(request: NextRequest) {
     // Apply task_updates from the planner
     for (const taskUpdate of plannerResult.task_updates) {
       if (taskUpdate.task_id) {
-        // Update existing task
         await supabase
           .from('tasks')
           .update({
@@ -316,7 +339,6 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', taskUpdate.task_id)
       } else {
-        // Create new task from planner
         await supabase
           .from('tasks')
           .insert({
@@ -347,7 +369,6 @@ export async function POST(request: NextRequest) {
       caseData.check_in_interval_hours || 24
     )
 
-    // Count tasks with failure_count >= 2
     const { data: highFailureTasks } = await supabase
       .from('tasks')
       .select('id')
@@ -355,7 +376,7 @@ export async function POST(request: NextRequest) {
       .gte('failure_count', 2)
       .in('status', ['pending', 'active', 'stuck'])
 
-    const hoursSinceLastCheckIn = 0 // Just checked in now
+    const hoursSinceLastCheckIn = 0
 
     const driftScore = computeDriftScore({
       adherenceRate,
@@ -398,7 +419,6 @@ export async function POST(request: NextRequest) {
       try {
         const whatAiTried: string[] = []
 
-        // Build what_ai_tried from planner changes
         if (plannerResult.change_summary) {
           whatAiTried.push(plannerResult.change_summary)
         }
@@ -458,7 +478,6 @@ export async function POST(request: NextRequest) {
     const nextCheckInAt = new Date()
     nextCheckInAt.setHours(nextCheckInAt.getHours() + newCheckInInterval)
 
-    // Load final tasks for response
     const { data: finalTasks } = await supabase
       .from('tasks')
       .select('id, title, estimated_minutes, status, failure_count, priority_bucket')

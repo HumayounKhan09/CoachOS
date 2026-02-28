@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+
+const inviteSchema = z.object({
+  email: z.string().email('Invalid email format').max(255, 'Email too long'),
+  full_name: z.string().min(1, 'Name is required').max(200, 'Name too long').trim(),
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,11 +27,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only coaches can invite clients' }, { status: 403 })
     }
 
-    const { email, full_name } = await request.json()
-
-    if (!email || !full_name) {
-      return NextResponse.json({ error: 'Email and full_name are required' }, { status: 400 })
+    // Validate request body with Zod
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
+
+    const parseResult = inviteSchema.safeParse(body)
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { email, full_name } = parseResult.data
 
     const admin = createAdminClient()
 
@@ -48,7 +66,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (inviteError) {
-      return NextResponse.json({ error: inviteError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to send invite' }, { status: 500 })
     }
 
     const newUserId = inviteData.user.id
@@ -78,7 +96,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (caseError) {
-      return NextResponse.json({ error: caseError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to create case' }, { status: 500 })
     }
 
     return NextResponse.json({

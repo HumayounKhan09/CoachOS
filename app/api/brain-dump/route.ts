@@ -1,6 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { runStructurer } from '@/lib/ai/structurer'
+import { z } from 'zod'
+
+const brainDumpSchema = z.object({
+  text: z.string().min(1, 'Text is required').max(10000, 'Text exceeds maximum length of 10,000 characters').trim(),
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,11 +27,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only clients can submit brain dumps' }, { status: 403 })
     }
 
-    const { text } = await request.json()
-
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 })
+    // Validate request body with Zod
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
+
+    const parseResult = brainDumpSchema.safeParse(body)
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { text } = parseResult.data
 
     // Load client's case
     const { data: caseData, error: caseError } = await supabase
@@ -66,7 +83,7 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .single()
 
-    const recentSentiment = latestCheckIn?.ai_parsed_signals?.sentiment || 'neutral'
+    const recentSentiment = (latestCheckIn?.ai_parsed_signals as { sentiment?: string } | null)?.sentiment || 'neutral'
 
     // Compute days since last brain dump (approximate via plan creation)
     let daysSinceLastBrainDump: number | null = null
