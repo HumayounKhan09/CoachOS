@@ -36,13 +36,13 @@ export default function LoginPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
+      const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).maybeSingle()
       if (coach) {
         router.push('/dashboard')
         router.refresh()
         return
       }
-      const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).single()
+      const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).maybeSingle()
       if (client) {
         router.push('/today')
       }

@@ -35,11 +35,11 @@ export async function updateSession(request: NextRequest) {
   const publicRoutes = ['/login', '/signup', '/accept-invite', '/forgot-password', '/reset-password', '/auth/callback']
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     if (user) {
-      const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
+      const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).maybeSingle()
       if (coach) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
-      const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).single()
+      const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).maybeSingle()
       if (client) {
         return NextResponse.redirect(new URL('/today', request.url))
       }
@@ -51,8 +51,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
-  const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).single()
+  const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).maybeSingle()
+  const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).maybeSingle()
 
   const isCoach = !!coach
   const isClient = !!client

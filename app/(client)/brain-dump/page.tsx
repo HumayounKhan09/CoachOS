@@ -73,7 +73,7 @@ export default function BrainDumpPage() {
         if (res.status === 404 && (msg.includes('case') || msg.includes('active'))) {
           throw new Error('no_active_case')
         }
-        if (msg.includes('AI processing') || msg.includes('AI planning')) {
+        if (msg.includes('AI processing') || msg.includes('AI planning') || msg.includes('not configured') || msg.includes('API key')) {
           throw new Error('ai_error')
         }
         throw new Error(msg)
@@ -96,7 +96,7 @@ export default function BrainDumpPage() {
         msg === 'no_active_case'
           ? "You don't have an active coaching case. Ask your coach to add you."
           : msg === 'ai_error'
-          ? "We couldn't process your notes right now. Try again in a moment."
+          ? "We couldn't process your notes right now. Try again in a moment. If it keeps happening, ask your coach to check the app settings."
           : msg === 'create_plan_failed'
           ? "We couldn't save your plan. Please try again."
           : msg

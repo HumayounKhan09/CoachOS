@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       .from('clients')
       .select('id')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     if (!client) {
       return NextResponse.json({ error: 'Only clients can submit brain dumps' }, { status: 403 })
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('client_id', user.id)
       .eq('status', 'active')
-      .single()
+      .maybeSingle()
 
     if (caseError || !caseData) {
       return NextResponse.json({ error: 'No active case found' }, { status: 404 })
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       .eq('case_id', caseData.id)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     const recentSentiment = (latestCheckIn?.ai_parsed_signals as { sentiment?: string } | null)?.sentiment || 'neutral'
 
@@ -109,7 +109,15 @@ export async function POST(request: NextRequest) {
       ambiguity_flags: result.ambiguity_flags,
     })
   } catch (err) {
-    console.error('Brain dump error:', err)
-    return NextResponse.json({ error: 'AI processing failed' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Brain dump error:', { message, stack: err instanceof Error ? err.stack : undefined })
+    const isAuthError =
+      /api key|invalid key|unauthorized|authentication|401|403/i.test(message) ||
+      (message && message.includes('AI_GATEWAY'))
+    const errorMessage =
+      isAuthError
+        ? 'AI service is not configured. Please set AI_GATEWAY_API_KEY (or provider API key) in your environment.'
+        : 'AI processing failed'
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
