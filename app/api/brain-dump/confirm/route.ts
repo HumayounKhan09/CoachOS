@@ -26,14 +26,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is client
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
+    const { data: client } = await supabase
+      .from('clients')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'client') {
+    if (!client) {
       return NextResponse.json({ error: 'Only clients can confirm brain dumps' }, { status: 403 })
     }
 
@@ -98,6 +97,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (planError || !newPlan) {
+      console.error('Failed to create plan:', planError)
       return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 })
     }
 
@@ -147,20 +147,26 @@ export async function POST(request: NextRequest) {
       .limit(5)
 
     // Call AI Planner
-    const plannerResult = await runPlanner({
-      tasks: allTasks || [],
-      goals: existingPlan?.goals || [],
-      recent_check_ins: recentCheckIns || [],
-      signals: {
-        drift_score: caseData.drift_score,
-        overwhelm_score: caseData.overwhelm_score,
+    let plannerResult
+    try {
+      plannerResult = await runPlanner({
+        tasks: allTasks || [],
+        goals: existingPlan?.goals || [],
+        recent_check_ins: recentCheckIns || [],
+        signals: {
+          drift_score: caseData.drift_score,
+          overwhelm_score: caseData.overwhelm_score,
+          adherence_rate: caseData.adherence_rate,
+        },
+        policies: caseData.policies,
         adherence_rate: caseData.adherence_rate,
-      },
-      policies: caseData.policies,
-      adherence_rate: caseData.adherence_rate,
-      overwhelm_score: caseData.overwhelm_score,
-      trigger: 'brain_dump_confirm',
-    })
+        overwhelm_score: caseData.overwhelm_score,
+        trigger: 'brain_dump_confirm',
+      })
+    } catch (plannerErr) {
+      console.error('Planner error:', plannerErr)
+      return NextResponse.json({ error: 'AI planning failed' }, { status: 500 })
+    }
 
     // Update plan with planner output
     await supabase
@@ -241,6 +247,10 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('Brain dump confirm error:', err)
-    return NextResponse.json({ error: 'Failed to confirm brain dump' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.includes('active case') || msg.includes('No active')) {
+      return NextResponse.json({ error: 'No active case found' }, { status: 404 })
+    }
+    return NextResponse.json({ error: 'Failed to create plan' }, { status: 500 })
   }
 }

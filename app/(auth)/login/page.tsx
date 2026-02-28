@@ -36,15 +36,14 @@ export default function LoginPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.role === 'coach') {
+      const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
+      if (coach) {
         router.push('/dashboard')
-      } else {
+        router.refresh()
+        return
+      }
+      const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).single()
+      if (client) {
         router.push('/today')
       }
     }
@@ -103,6 +102,11 @@ export default function LoginPage() {
           Coach?{' '}
           <Link href="/signup" className="text-accent hover:underline">
             Create an account
+          </Link>
+          {' · '}
+          Client?{' '}
+          <Link href="/signup/client" className="text-accent hover:underline">
+            Sign up with a code
           </Link>
         </p>
       </div>

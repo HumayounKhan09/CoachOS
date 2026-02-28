@@ -35,52 +35,42 @@ export async function updateSession(request: NextRequest) {
   const publicRoutes = ['/login', '/signup', '/accept-invite', '/forgot-password', '/reset-password', '/auth/callback']
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     if (user) {
-      // Already authenticated - redirect to appropriate home
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (profile?.role === 'coach') {
+      const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
+      if (coach) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
-      return NextResponse.redirect(new URL('/today', request.url))
+      const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).single()
+      if (client) {
+        return NextResponse.redirect(new URL('/today', request.url))
+      }
     }
     return supabaseResponse
   }
 
-  // Not authenticated
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Get user role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
+  const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).single()
 
-  const role = profile?.role
+  const isCoach = !!coach
+  const isClient = !!client
 
-  // No valid role (missing profile or role) → send to login to avoid redirect loop
-  if (role !== 'coach' && role !== 'client') {
+  if (!isCoach && !isClient) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Client routes
   const clientRoutes = ['/today', '/brain-dump', '/check-in']
   if (clientRoutes.some((route) => pathname.startsWith(route))) {
-    if (role !== 'client') {
+    if (!isClient) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
-  // Coach routes
   const coachRoutes = ['/dashboard', '/cases']
   if (coachRoutes.some((route) => pathname.startsWith(route))) {
-    if (role !== 'coach') {
+    if (!isCoach) {
       return NextResponse.redirect(new URL('/today', request.url))
     }
   }

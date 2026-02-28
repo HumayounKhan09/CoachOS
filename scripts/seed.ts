@@ -109,8 +109,10 @@ async function cleanExistingData() {
     }
   }
 
-  // Delete profiles (will cascade from auth users deletion)
-  // We'll delete auth users for seed emails, which triggers cascade
+  const { error: inviteCodesErr } = await supabase.from('invite_codes').delete().neq('code', '')
+  if (inviteCodesErr) console.warn(`  Warning: could not clean invite_codes: ${inviteCodesErr.message}`)
+  else console.log('  Cleaned invite_codes')
+
   const seedEmails = [
     'coach@coachos.demo',
     'jane@coachos.demo',
@@ -125,8 +127,8 @@ async function cleanExistingData() {
   if (existingUsers) {
     for (const user of existingUsers.users) {
       if (user.email && seedEmails.includes(user.email)) {
-        // Delete profile first (the trigger creates it, but cascade should handle it)
-        await supabase.from('profiles').delete().eq('id', user.id)
+        await supabase.from('clients').delete().eq('id', user.id)
+        await supabase.from('coaches').delete().eq('id', user.id)
         const { error } = await supabase.auth.admin.deleteUser(user.id)
         if (error) {
           console.warn(`  Warning: could not delete user ${user.email}: ${error.message}`)
@@ -207,6 +209,29 @@ async function seed() {
   })
 
   console.log('Users created.\n')
+
+  // ---------------------------
+  // Step 1b: Ensure coaches and clients rows
+  // ---------------------------
+  console.log('Step 1b: Ensuring coaches and clients rows...')
+
+  const { error: coachUpsertErr } = await supabase.from('coaches').upsert(
+    { id: coachId, email: 'coach@coachos.demo', full_name: 'Alex Rivera' },
+    { onConflict: 'id' }
+  )
+  if (coachUpsertErr) throw new Error(`Failed to upsert coach: ${coachUpsertErr.message}`)
+
+  const clientRows = [
+    { id: janeId, coach_id: coachId, email: 'jane@coachos.demo', full_name: 'Jane Student' },
+    { id: mikeId, coach_id: coachId, email: 'mike@coachos.demo', full_name: 'Mike Johnson' },
+    { id: saraId, coach_id: coachId, email: 'sara@coachos.demo', full_name: 'Sara Williams' },
+    { id: alexChenId, coach_id: coachId, email: 'alex.chen@coachos.demo', full_name: 'Alex Chen' },
+    { id: priyaId, coach_id: coachId, email: 'priya@coachos.demo', full_name: 'Priya Patel' },
+    { id: tomId, coach_id: coachId, email: 'tom@coachos.demo', full_name: 'Tom Rivera' },
+  ]
+  const { error: clientsErr } = await supabase.from('clients').upsert(clientRows, { onConflict: 'id' })
+  if (clientsErr) throw new Error(`Failed to upsert clients: ${clientsErr.message}`)
+  console.log('  Coaches and clients rows ready.\n')
 
   // ---------------------------
   // Step 2: Create cases

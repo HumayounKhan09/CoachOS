@@ -25,14 +25,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is client
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
+    const { data: client } = await supabase
+      .from('clients')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'client') {
+    if (!client) {
       return NextResponse.json({ error: 'Only clients can access check-ins' }, { status: 403 })
     }
 
@@ -120,14 +119,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is client
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
+    const { data: client } = await supabase
+      .from('clients')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'client') {
+    if (!client) {
       return NextResponse.json({ error: 'Only clients can submit check-ins' }, { status: 403 })
     }
 

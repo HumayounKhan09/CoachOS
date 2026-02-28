@@ -13,14 +13,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is coach
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
+    const { data: coach } = await supabase
+      .from('coaches')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'coach') {
+    if (!coach) {
       return NextResponse.json({ error: 'Only coaches can access cases' }, { status: 403 })
     }
 
@@ -51,15 +50,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get client profiles for names
     const clientIds = cases.map((c) => c.client_id)
-    const { data: clientProfiles } = await supabase
-      .from('profiles')
+    const { data: clientRows } = await supabase
+      .from('clients')
       .select('id, full_name, email')
       .in('id', clientIds)
 
     const profileMap = new Map(
-      (clientProfiles || []).map((p) => [p.id, p])
+      (clientRows || []).map((p) => [p.id, p])
     )
 
     // Get unresolved escalations per case

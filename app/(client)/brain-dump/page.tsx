@@ -69,7 +69,14 @@ export default function BrainDumpPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to process brain dump')
+        const msg = err?.error || 'Failed to process brain dump'
+        if (res.status === 404 && (msg.includes('case') || msg.includes('active'))) {
+          throw new Error('no_active_case')
+        }
+        if (msg.includes('AI processing') || msg.includes('AI planning')) {
+          throw new Error('ai_error')
+        }
+        throw new Error(msg)
       }
 
       const data: BrainDumpResponse = await res.json()
@@ -84,7 +91,16 @@ export default function BrainDumpPage() {
       setOverallSentiment(data.overall_sentiment || '')
       setPhase(2)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      const msg = err instanceof Error ? err.message : 'Something went wrong'
+      const friendly =
+        msg === 'no_active_case'
+          ? "You don't have an active coaching case. Ask your coach to add you."
+          : msg === 'ai_error'
+          ? "We couldn't process your notes right now. Try again in a moment."
+          : msg === 'create_plan_failed'
+          ? "We couldn't save your plan. Please try again."
+          : msg
+      setError(friendly)
     } finally {
       setLoading(false)
     }
@@ -131,14 +147,33 @@ export default function BrainDumpPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to confirm plan')
+        const msg = err?.error || 'Failed to confirm plan'
+        if (res.status === 404 && (msg.includes('case') || msg.includes('active'))) {
+          throw new Error('no_active_case')
+        }
+        if (msg.includes('AI planning')) {
+          throw new Error('ai_error')
+        }
+        if (msg.includes('create plan') || msg.includes('save')) {
+          throw new Error('create_plan_failed')
+        }
+        throw new Error(msg)
       }
 
       const data: PlanResponse = await res.json()
       setPlanResult(data)
       setPhase(3)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      const msg = err instanceof Error ? err.message : 'Something went wrong'
+      const friendly =
+        msg === 'no_active_case'
+          ? "You don't have an active coaching case. Ask your coach to add you."
+          : msg === 'ai_error'
+          ? "We couldn't build your plan right now. Try again in a moment."
+          : msg === 'create_plan_failed'
+          ? "We couldn't save your plan. Please try again."
+          : msg
+      setError(friendly)
     } finally {
       setLoading(false)
     }

@@ -15,14 +15,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is coach
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
 
-    if (profile?.role !== 'coach') {
+    if (!coach) {
       return NextResponse.json({ error: 'Only coaches can access case details' }, { status: 403 })
     }
 
@@ -45,9 +40,8 @@ export async function GET(
       return NextResponse.json({ error: 'Case not found' }, { status: 404 })
     }
 
-    // Load client profile
     const { data: clientProfile } = await supabase
-      .from('profiles')
+      .from('clients')
       .select('id, full_name, email')
       .eq('id', caseData.client_id)
       .single()

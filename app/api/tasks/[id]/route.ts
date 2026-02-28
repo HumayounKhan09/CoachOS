@@ -47,19 +47,14 @@ export async function PATCH(
 
     const { status, priority_bucket } = parseResult.data
 
-    // Verify user role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
+    const { data: client } = await supabase.from('clients').select('id').eq('id', user.id).single()
 
-    if (!profile) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 403 })
+    if (!coach && !client) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Clients can only mark tasks as done or stuck
-    if (profile.role === 'client' && !['done', 'stuck'].includes(status)) {
+    if (client && !['done', 'stuck'].includes(status)) {
       return NextResponse.json({ error: 'Clients can only mark tasks as done or stuck' }, { status: 403 })
     }
 

@@ -52,14 +52,13 @@ export default function SignupPage() {
       return
     }
 
-    // Ensure profile exists (in case DB trigger didn't run, e.g. RLS or trigger not applied)
+    // Ensure coach row exists (in case DB trigger didn't run)
     if (data?.user && data?.session) {
-      await supabase.from('profiles').upsert(
+      await supabase.from('coaches').upsert(
         {
           id: data.user.id,
           email: data.user.email ?? email,
           full_name: fullName || (data.user.user_metadata?.full_name as string) || '',
-          role: (data.user.user_metadata?.role as string) || 'coach',
         },
         { onConflict: 'id' }
       )

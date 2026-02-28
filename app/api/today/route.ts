@@ -12,14 +12,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is client
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
+    const { data: client } = await supabase
+      .from('clients')
+      .select('id')
       .eq('id', user.id)
       .single()
 
-    if (profile?.role !== 'client') {
+    if (!client) {
       return NextResponse.json({ error: 'Only clients can access the today view' }, { status: 403 })
     }
 

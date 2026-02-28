@@ -21,14 +21,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is coach
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
 
-    if (profile?.role !== 'coach') {
+    if (!coach) {
       return NextResponse.json({ error: 'Only coaches can access escalations' }, { status: 403 })
     }
 
@@ -100,14 +95,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify role is coach
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    const { data: coach } = await supabase.from('coaches').select('id').eq('id', user.id).single()
 
-    if (profile?.role !== 'coach') {
+    if (!coach) {
       return NextResponse.json({ error: 'Only coaches can resolve escalations' }, { status: 403 })
     }
 

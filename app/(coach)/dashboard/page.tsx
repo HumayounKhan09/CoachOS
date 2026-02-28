@@ -65,13 +65,12 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterType>('all')
 
-  // Invite modal state
+  // Invite code modal state
   const [showInvite, setShowInvite] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteName, setInviteName] = useState('')
+  const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const fetchCases = useCallback(async () => {
     try {
@@ -96,41 +95,40 @@ export default function DashboardPage() {
     fetchCases()
   }, [fetchCases])
 
-  async function handleInvite(e: React.FormEvent) {
-    e.preventDefault()
-    if (!inviteEmail.trim() || !inviteName.trim()) return
+  async function handleGenerateCode() {
     setInviteLoading(true)
     setInviteError(null)
+    setInviteCode(null)
 
     try {
-      const res = await fetch('/api/auth/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: inviteEmail.trim(),
-          full_name: inviteName.trim(),
-        }),
-      })
-
+      const res = await fetch('/api/invite-codes', { method: 'POST' })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to send invite')
+        throw new Error(err.error || 'Failed to generate code')
       }
-
-      setInviteSuccess(true)
-      setInviteEmail('')
-      setInviteName('')
-      // Refresh cases list after invite
-      setTimeout(() => {
-        setInviteSuccess(false)
-        setShowInvite(false)
-        fetchCases()
-      }, 2000)
+      const { code } = await res.json()
+      setInviteCode(code)
+      fetchCases()
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setInviteLoading(false)
     }
+  }
+
+  function handleCopyCode() {
+    if (inviteCode) {
+      navigator.clipboard.writeText(inviteCode)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  function closeInviteModal() {
+    setShowInvite(false)
+    setInviteError(null)
+    setInviteCode(null)
+    setCopied(false)
   }
 
   function getScoreColor(score: number, isInverse: boolean = false) {
@@ -301,92 +299,69 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Invite Modal */}
+      {/* Invite code modal */}
       {showInvite && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-surface border border-border rounded-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-foreground">Invite Client</h2>
-              <button
-                onClick={() => { setShowInvite(false); setInviteError(null); setInviteSuccess(false) }}
-                className="text-muted hover:text-foreground transition-colors"
-              >
+              <button onClick={closeInviteModal} className="text-muted hover:text-foreground transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {inviteSuccess ? (
-              <div className="text-center py-4">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-success/10 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <p className="text-foreground font-medium">Invite sent!</p>
-                <p className="text-muted text-sm mt-1">They&apos;ll receive an email to get started.</p>
+            <p className="text-muted text-sm mb-4">
+              Generate a one-time code. Share it with your client so they can sign up and link their account to you.
+            </p>
+
+            {inviteError && (
+              <div className="mb-4 bg-danger/10 border border-danger/30 rounded-lg p-2.5">
+                <p className="text-danger text-xs">{inviteError}</p>
+              </div>
+            )}
+
+            {inviteCode ? (
+              <div className="space-y-3">
+                <p className="text-foreground font-mono text-xl tracking-wider text-center py-3 bg-background border border-border rounded-lg">
+                  {inviteCode}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 transition-colors"
+                >
+                  {copied ? 'Copied!' : 'Copy code'}
+                </button>
+                <p className="text-muted text-xs text-center">
+                  Send this code to your client. They use it on the client signup page.
+                </p>
               </div>
             ) : (
-              <form onSubmit={handleInvite}>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm text-muted mb-1">Full name</label>
-                    <input
-                      type="text"
-                      value={inviteName}
-                      onChange={(e) => setInviteName(e.target.value)}
-                      placeholder="Jane Student"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-foreground text-sm placeholder:text-muted/60 focus:outline-none focus:border-accent/50 transition-colors"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-muted mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder="jane@example.com"
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-foreground text-sm placeholder:text-muted/60 focus:outline-none focus:border-accent/50 transition-colors"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {inviteError && (
-                  <div className="mt-3 bg-danger/10 border border-danger/30 rounded-lg p-2.5">
-                    <p className="text-danger text-xs">{inviteError}</p>
-                  </div>
-                )}
-
-                <div className="mt-4 flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => { setShowInvite(false); setInviteError(null) }}
-                    className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={inviteLoading || !inviteEmail.trim() || !inviteName.trim()}
-                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {inviteLoading ? (
-                      <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Sending...
-                      </>
-                    ) : (
-                      'Send Invite'
-                    )}
-                  </button>
-                </div>
-              </form>
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={closeInviteModal} className="px-4 py-2 text-sm text-muted hover:text-foreground transition-colors">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateCode}
+                  disabled={inviteLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {inviteLoading ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    'Generate invite code'
+                  )}
+                </button>
+              </div>
             )}
           </div>
         </div>
