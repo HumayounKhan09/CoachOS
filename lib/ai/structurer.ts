@@ -51,6 +51,7 @@ export async function runStructurer(text: string, context: StructurerContext): P
   const { object } = await generateObject({
     model: getModel(),
     schema: structurerSchema,
+    mode: 'auto',
     system: SYSTEM_PROMPT,
     prompt: JSON.stringify({
       brain_dump_text: text,

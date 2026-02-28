@@ -68,6 +68,7 @@ export async function runPlanner(context: PlannerContext): Promise<PlannerOutput
   const { object } = await generateObject({
     model: getModel(),
     schema: plannerSchema,
+    mode: 'auto',
     system: SYSTEM_PROMPT,
     prompt: JSON.stringify(context),
   })

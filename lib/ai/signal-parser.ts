@@ -35,6 +35,7 @@ export async function runSignalParser(input: SignalParserInput): Promise<SignalP
   const { object } = await generateObject({
     model: getModel(),
     schema: signalParserSchema,
+    mode: 'auto',
     system: SYSTEM_PROMPT,
     prompt: JSON.stringify(input),
   })

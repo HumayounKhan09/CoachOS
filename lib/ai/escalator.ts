@@ -49,6 +49,7 @@ export async function runEscalator(context: EscalatorContext): Promise<Escalator
   const { object } = await generateObject({
     model: getModel(),
     schema: escalatorSchema,
+    mode: 'auto',
     system: SYSTEM_PROMPT,
     prompt: JSON.stringify(context),
   })
