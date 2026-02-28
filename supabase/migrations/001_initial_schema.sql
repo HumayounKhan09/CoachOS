@@ -1,4 +1,6 @@
 -- CoachOS Initial Schema
+-- Run this once in Supabase Dashboard → SQL Editor (or use: supabase db push).
+-- See supabase/README.md for instructions.
 
 -- Table: profiles
 CREATE TABLE profiles (
@@ -89,8 +91,9 @@ ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE check_ins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE escalations ENABLE ROW LEVEL SECURITY;
 
--- Profiles: users see own row
+-- Profiles: users see own row, and can insert own row (for signup when trigger is blocked by RLS)
 CREATE POLICY "Users see own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Cases: client sees own, coach sees assigned

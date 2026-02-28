@@ -52,6 +52,19 @@ export default function SignupPage() {
       return
     }
 
+    // Ensure profile exists (in case DB trigger didn't run, e.g. RLS or trigger not applied)
+    if (data?.user && data?.session) {
+      await supabase.from('profiles').upsert(
+        {
+          id: data.user.id,
+          email: data.user.email ?? email,
+          full_name: fullName || (data.user.user_metadata?.full_name as string) || '',
+          role: (data.user.user_metadata?.role as string) || 'coach',
+        },
+        { onConflict: 'id' }
+      )
+    }
+
     router.push('/dashboard')
     router.refresh()
   }
