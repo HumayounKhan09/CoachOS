@@ -6,14 +6,20 @@ import {
   computeDriftScore,
   computeCheckInInterval,
 } from '@/lib/signals'
+import { timingSafeEqual } from 'crypto'
+
+function safeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b))
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify CRON_SECRET
+    // Verify CRON_SECRET with timing-safe comparison
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
 
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || !authHeader || !safeCompare(authHeader, `Bearer ${cronSecret}`)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

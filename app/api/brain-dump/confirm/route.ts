@@ -1,6 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { runPlanner } from '@/lib/ai/planner'
+import { z } from 'zod'
+
+const confirmCandidateSchema = z.object({
+  temp_id: z.string().max(100),
+  accepted: z.boolean(),
+  title: z.string().max(200).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  priority_bucket: z.enum(['now', 'next', 'later']).optional(),
+  estimated_minutes: z.number().int().min(1).max(480).nullable().optional(),
+  deadline: z.string().max(50).nullable().optional(),
+})
+
+const confirmSchema = z.object({
+  confirmed_candidates: z.array(confirmCandidateSchema).min(1).max(50),
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,11 +37,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only clients can confirm brain dumps' }, { status: 403 })
     }
 
-    const { confirmed_candidates } = await request.json()
-
-    if (!confirmed_candidates || !Array.isArray(confirmed_candidates)) {
-      return NextResponse.json({ error: 'confirmed_candidates array is required' }, { status: 400 })
+    // Validate request body with Zod
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
     }
+
+    const parseResult = confirmSchema.safeParse(body)
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const { confirmed_candidates } = parseResult.data
 
     // Load client's case
     const { data: caseData, error: caseError } = await supabase
@@ -75,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create task rows for accepted candidates
-    const acceptedCandidates = confirmed_candidates.filter((c: { accepted: boolean }) => c.accepted)
+    const acceptedCandidates = confirmed_candidates.filter((c) => c.accepted)
     const newTasks = []
 
     for (let i = 0; i < acceptedCandidates.length; i++) {
@@ -85,7 +112,7 @@ export async function POST(request: NextRequest) {
         .insert({
           case_id: caseData.id,
           plan_id: newPlan.id,
-          title: candidate.title,
+          title: candidate.title || 'Untitled task',
           description: candidate.description || null,
           status: 'pending',
           priority_bucket: candidate.priority_bucket || 'next',

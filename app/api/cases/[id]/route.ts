@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -25,6 +27,11 @@ export async function GET(
     }
 
     const caseId = params.id
+
+    // Validate UUID format
+    if (!UUID_REGEX.test(caseId)) {
+      return NextResponse.json({ error: 'Invalid case ID format' }, { status: 400 })
+    }
 
     // Load the case (RLS ensures coach can only see their own cases)
     const { data: caseData, error: caseError } = await supabase
